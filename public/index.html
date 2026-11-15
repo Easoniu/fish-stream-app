@@ -117,11 +117,17 @@ async function startStreaming() {
         });
 
         if (!response.ok) {
-            const err = await response.json();
-            throw new Error(err.error || '串流請求失敗');
+            let errorMsg = '請求失敗';
+            try {
+                const errData = await response.json();
+                errorMsg = errData.error || errorMsg;
+            } catch (e) {
+                // 如果後端傳回的是 HTML 或純文字錯誤
+                errorMsg = await response.text();
+            }
+            throw new Error(errorMsg);
         }
 
-        // 使用 MediaSource 或 Blob 串流累積播放
         const reader = response.body.getReader();
         const chunks = [];
 
