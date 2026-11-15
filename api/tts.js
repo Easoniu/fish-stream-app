@@ -1,8 +1,6 @@
-import fetch from 'node-fetch';
-
 export default async function handler(req, res) {
     if (req.method !== 'POST') {
-        return res.status(405.json({ error: '只允許 POST 請求' }));
+        return res.status(405).json({ error: '只允許 POST 請求' });
     }
 
     try {
@@ -12,7 +10,7 @@ export default async function handler(req, res) {
             return res.status(400).json({ error: '缺少必要的 API Key 或文字內容' });
         }
 
-        // 呼叫 Fish Audio API
+        // 呼叫 Fish Audio API (使用 Node.js 內建 fetch)
         const fishResponse = await fetch('https://api.fish.audio/v1/tts', {
             method: 'POST',
             headers: {
@@ -49,7 +47,7 @@ export default async function handler(req, res) {
     } catch (err) {
         console.error(err);
         if (!res.headersSent) {
-            res.status(500).json({ error: '伺服器串流發生錯誤' });
+            res.status(500).json({ error: '伺服器發生例外錯誤: ' + err.message });
         }
     }
 }
