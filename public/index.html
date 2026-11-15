@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fish Audio 即時串流語音生成器</title>
+    <style>
+        :root {
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --text-color: #1e293b;
+            --primary-color: #3b82f6;
+            --primary-hover: #2563eb;
+            --border-color: #cbd5e1;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0; padding: 2rem;
+            display: flex; justify-content: center;
+        }
+        .container {
+            width: 100%; max-width: 600px;
+            background: var(--card-bg); padding: 2rem;
+            border-radius: 12px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        }
+        h2 { margin-top: 0; text-align: center; }
+        .form-group { margin-bottom: 1.25rem; }
+        label { display: block; font-weight: 600; margin-bottom: 0.5rem; }
+        input, textarea, select {
+            width: 100%; padding: 0.75rem; border: 1px solid var(--border-color);
+            border-radius: 6px; box-sizing: border-box; font-size: 1rem;
+        }
+        textarea { height: 120px; resize: vertical; }
+        button {
+            width: 100%; background-color: var(--primary-color); color: white;
+            border: none; padding: 0.75rem; font-size: 1rem; font-weight: 600;
+            border-radius: 6px; cursor: pointer;
+        }
+        button:hover { background-color: var(--primary-hover); }
+        button:disabled { background-color: #94a3b8; cursor: not-allowed; }
+        .loading { text-align: center; color: #64748b; margin-top: 1rem; display: none; }
+        audio { width: 100%; margin-top: 1rem; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Fish Audio 串流語音生成器</h2>
+    
+    <div class="form-group">
+        <label>API Key</label>
+        <input type="password" id="apiKey" placeholder="輸入你的 Bearer API Key">
+    </div>
+
+    <div class="form-group">
+        <label>選擇模型</label>
+        <select id="model">
+            <option value="s2.1-pro-free">s2.1-pro-free (免費開發者模型)</option>
+            <option value="s2-pro">s2-pro (高效能專業模型)</option>
+            <option value="drama-3">drama-3 (支援劇本情緒標籤)</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label>語音參考 ID (選填)</label>
+        <input type="text" id="referenceId" placeholder="Voice Reference ID">
+    </div>
+
+    <div class="form-group">
+        <label>語速 (預設 1.0)</label>
+        <input type="text" id="speed" value="1.0">
+    </div>
+
+    <div class="form-group">
+        <label>轉換文字</label>
+        <textarea id="text" placeholder="輸入想要即時串流轉語音的文字..."></textarea>
+    </div>
+
+    <button id="generateBtn" onclick="startStreaming()">開始串流生成</button>
+    <div id="loading" class="loading">正在建立串流連線與生成語音...</div>
+
+    <div id="resultSection" style="display:none; margin-top: 2rem;">
+        <h3>串流播放</h3>
+        <audio id="audioPlayer" controls></audio>
+    </div>
+</div>
+
+<script>
+async function startStreaming() {
+    const apiKey = document.getElementById('apiKey').value.trim();
+    const model = document.getElementById('model').value;
+    const referenceId = document.getElementById('referenceId').value.trim();
+    const speed = document.getElementById('speed').value.trim();
+    const text = document.getElementById('text').value.trim();
+    
+    const generateBtn = document.getElementById('generateBtn');
+    const loading = document.getElementById('loading');
+    const resultSection = document.getElementById('resultSection');
+    const audioPlayer = document.getElementById('audioPlayer');
+
+    if (!apiKey || !text) {
+        alert('請填寫 API Key 與文字內容！');
+        return;
+    }
+
+    generateBtn.disabled = true;
+    loading.style.display = 'block';
+    resultSection.style.display = 'none';
+
+    try {
+        const response = await fetch('/api/tts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ apiKey, text, model, referenceId, speed })
+        });
+
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.error || '串流請求失敗');
+        }
+
+        // 使用 MediaSource 或 Blob 串流累積播放
+        const reader = response.body.getReader();
+        const chunks = [];
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            chunks.push(value);
+        }
+
+        const blob = new Blob(chunks, { type: 'audio/mpeg' });
+        const audioUrl = URL.createObjectURL(blob);
+        
+        audioPlayer.src = audioUrl;
+        resultSection.style.display = 'block';
+        audioPlayer.play();
+
+    } catch (error) {
+        alert('發生錯誤: ' + error.message);
+    } finally {
+        generateBtn.disabled = false;
+        loading.style.display = 'none';
+    }
+}
+</script>
+
+</body>
+</html>
